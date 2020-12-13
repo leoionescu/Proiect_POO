@@ -20,10 +20,16 @@ private:
 	types type;
 
 public:
+	column()
+	{
+		columnName = nullptr;
+		length = 0;
+	}
 	column(char* columnName)
 	{
 		this->columnName = new char[strlen(columnName) + 1];
 		strcpy_s(this->columnName, strlen(columnName) + 1, columnName);
+		length = 0;
 	}
 	column(char* columnName, types type, int length, int value) :column(columnName)
 	{
@@ -42,6 +48,19 @@ public:
 		this->type = type;
 		this->length = length;
 		setValue(value);
+	}
+
+	column(const column& c)
+	{
+		if (type == 0)
+			column(c.columnName, c.type, c.length, 0);
+		if (type == 1)
+		{
+			char* x = nullptr;
+			column(c.columnName, c.type, c.length, x);
+		}
+		if (type == 2)
+			column(c.columnName, c.type, c.length, float(0));
 	}
 
 	void setValue(int value)
@@ -85,7 +104,47 @@ public:
 	{
 		return length;
 	}
+	char* getColumnName()
+	{
+		return columnName;
+	}
+	types getType()
+	{
+		return type;
+	}
 
+	column operator=(column c)
+	{
+		length = c.length;
+		columnName = new char[strlen(c.columnName) + 1];
+		strcpy_s(columnName, strlen(c.columnName) + 1, c.columnName);
+		if (intValues != nullptr)
+		{
+			intValues = new int[c.length];
+			for (int i = 0; i < c.length; i++)
+			{
+				intValues[i] = c.intValues[i];
+			}
+		}
+		if (floatValues != nullptr)
+		{
+			floatValues = new float[c.length];
+			for (int i = 0; i < length; i++)
+			{
+				floatValues[i] = c.floatValues[i];
+			}
+		}
+		if (charValues != nullptr)
+		{
+			charValues = new char* [length];
+			for (int i = 0; i < length; i++)
+			{
+				charValues[i] = new char(strlen(c.charValues[i]) + 1);
+				strcpy_s(charValues[i], strlen(c.charValues[i]) + 1, c.charValues[i]);
+			}
+		}
+		return*this;
+	}
 };
 
 
@@ -94,19 +153,45 @@ class table
 private:
 	char* tableName;
 	int nbOfColumns;
-	types type;
 	column* columns;
 public:
 	table() :nbOfColumns(0)
 	{
 		tableName = nullptr;
-		type = intNumber;
 		columns = nullptr;
 	}
-	table(char* tableName, int nbOfColumns, types* a, char** columnNames)
+	table(char* tableName) :nbOfColumns(0)
+	{
+		this->tableName = new char[strlen(tableName) + 1];
+		strcpy_s(this->tableName, strlen(tableName) + 1, tableName);
+	}
+	table(char* tableName, int nbOfColumns, char** columnNames)
 	{}
 
+	void addColumn(char* columnName, types type)
+	{
+		nbOfColumns++;
+		column* c = columns;
+		columns = new column[nbOfColumns];
+		for (int i = 0; i < nbOfColumns - 1; i++)
+		{
+			columns[i] = c[i];
+		}
+		if (type == 0)
+			columns[nbOfColumns - 1] = column(columnName, type, 5, 1);
+		else if (type == 1)
+		{
+			char* x = nullptr;
+			columns[nbOfColumns - 1] = column(columnName, type, 5, x);
+		}
+		else if (type == 2)
+		{
+			columns[nbOfColumns - 1] = column(columnName, type, 5, float(2));
+		}
+	}
+
 	friend istream& operator>>(istream& in, table& t);
+	friend ostream& operator<<(ostream& out, table t);
 };
 
 int lungimeComanda(char* s)
@@ -136,7 +221,7 @@ bool compara(char* s1, const char* s2)
 }
 
 //CREATE TABLE angajat (
-int numeTabel(char* s,int index)
+int numeTabel(char* s, int index)
 {
 	for (int i = index; i < strlen(s); i++)
 	{
@@ -170,8 +255,12 @@ bool valideaza(char* comanda)
 		else
 		{
 			//cout << 5;
-			table t;
+			table t(copie);
 			cin >> t;
+			cout << endl;
+			cout << endl;
+			cout << endl;
+			cout << t;
 		}
 		return true;
 	}
@@ -209,7 +298,7 @@ bool valideaza(char* comanda)
 			cout << "Eroare";
 			return false;
 		}
-		
+
 		return true;
 	}
 
@@ -243,6 +332,12 @@ types getType(char* s)
 	if (strcmp(s, "float") == 0) return types(2);
 }
 
+types getType(std::string s)
+{
+	if (s == "int") return types(0);
+	if (s == "string") return types(1);
+	if (s == "float") return types(2);
+}
 
 void test()
 {
@@ -256,15 +351,15 @@ void test()
 	strcpy_s(valoare, strlen("valoare") + 1, "valoare\0");
 
 	//cout<<getType(sir);
-	column c(coloana,getType(sir), 10, valoare);
+	column c(coloana, getType(sir), 10, valoare);
 
 	///c = coloana;
-	
+
 	for (int i = 0; i < c.getLength(); i++)
 	{
 		cout << c.getString(i) << endl;
 	}
-	
+
 }
 
 
@@ -298,17 +393,57 @@ istream& operator>>(istream& in, table& t)
 			{
 				type = type.substr(0, type.find(','));
 			}
-			nameList.push_back(tableName);
-			typeList.push_back(type);
+			//nameList.push_back(tableName);
+			//typeList.push_back(type);
+			t.addColumn(tableName, getType(type));
 		}
 	}
-	cout << endl << "rezultat:" << endl;
-	for (int i = 0; i < nameList.size(); i++)
+	//cout << endl << "rezultat:" << endl;
+	/*for (int i = 0; i < nameList.size(); i++)
 	{
-		cout << nameList[i] << "  " << typeList[i] << endl;
-	} 
-	return in; 
+		int lungime = nameList[i].length();
+		char* name = new char[nameList[i].length() + 1];
+		strcpy_s(name, nameList[i].length(), nameList[i].c_str());
+		char* type = new char[typeList[i].length() + 1];
+		strcpy_s(type, typeList[i].length() + 1, typeList[i].c_str());
+		t.addColumn(name, getType(type));
+	} */
+	return in;
 }
+
+ostream& operator<<(ostream& out, table t)
+{
+	cout << t.tableName << endl;
+	for (int i = 0; i < t.nbOfColumns; i++)
+	{
+		cout << t.columns[i].getColumnName() << ' ';
+	}
+	cout << endl;
+	for (int i = 0; i < t.columns[0].getLength(); i++)
+		for (int j = 0; j < t.nbOfColumns; j++)
+		{
+			if (t.columns[j].getType() == 0)
+			{
+				cout << t.columns[j].getInt(i) << ' ';
+			}
+			if (t.columns[j].getType() == 1)
+			{
+				cout << t.columns[j].getString(i) << ' ';
+			}
+			if (t.columns[j].getType() == 2)
+			{
+				cout << t.columns[j].getFloat(i) << ' ';
+			}
+		}
+	return out;
+}
+
+/*
+CREATE TABLE a (
+comanda1 int,
+comanda2 float,
+);
+*/
 
 class createTable
 {
