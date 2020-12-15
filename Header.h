@@ -53,6 +53,51 @@ public:
 		setValue(value);
 	}
 
+	column(char* columnName, types type, int length) :column(columnName)
+	{
+		this->type = type;
+		this->length = length;
+	}
+
+	column(const column& c) : column(c.columnName, c.type, 0)
+	{
+		if (c.type == types(0))
+		{
+			intValues = new int[c.length];
+			for (int i = 0; i < c.length; i++)
+			{
+				intValues[i] = c.intValues[i];
+			}
+
+			floatValues = nullptr;
+			charValues = nullptr;
+		}
+		if (c.type == types(1))
+		{
+			char* x = nullptr;
+			//*this = column(c.columnName, c.type, c.length, x);
+			charValues = new char* [c.length];
+			for (int i = 0; i < c.length; i++)
+			{
+				charValues[i] = new char(strlen(c.charValues[i]) + 1);
+				strcpy_s(charValues[i], strlen(c.charValues[i]) + 1, c.charValues[i]);
+			}
+			intValues = nullptr;
+			floatValues = nullptr;
+		}
+		if (c.type == types(2))
+		{
+			//*this = column(c.columnName, c.type, c.length, float(0));
+			floatValues = new float[c.length];
+			for (int i = 0; i < c.length; i++)
+			{
+				floatValues[i] = c.floatValues[i];
+			}
+			intValues = nullptr;
+			charValues = nullptr;
+		}
+	}
+
 	void setValue(int value)
 	{
 		intValues = new int[length];
@@ -100,13 +145,22 @@ public:
 	{
 		return length;
 	}
-
-	column operator=(column c)
+	char* getColumnName()
 	{
+		return columnName;
+	}
+	types getType()
+	{
+		return type;
+	}
+
+	column operator=(column& c)
+	{
+		type = c.type;
 		length = c.length;
 		columnName = new char[strlen(c.columnName) + 1];
 		strcpy_s(columnName, strlen(c.columnName) + 1, c.columnName);
-		if (intValues != nullptr)
+		if (c.intValues != nullptr)
 		{
 			intValues = new int[c.length];
 			for (int i = 0; i < c.length; i++)
@@ -114,7 +168,7 @@ public:
 				intValues[i] = c.intValues[i];
 			}
 		}
-		if (floatValues != nullptr)
+		if (c.floatValues != nullptr)
 		{
 			floatValues = new float[c.length];
 			for (int i = 0; i < length; i++)
@@ -122,7 +176,7 @@ public:
 				floatValues[i] = c.floatValues[i];
 			}
 		}
-		if (charValues != nullptr)
+		if (c.charValues != nullptr)
 		{
 			charValues = new char* [length];
 			for (int i = 0; i < length; i++)
@@ -155,6 +209,41 @@ public:
 	}
 	table(char* tableName, int nbOfColumns, char** columnNames)
 	{}
+
+	void addColumn(char* columnName, types type)
+	{
+		nbOfColumns++;
+		column* c = columns;
+		columns = new column[nbOfColumns];
+		for (int i = 0; i < nbOfColumns - 1; i++)
+		{
+			columns[i] = c[i];
+		}
+		if (type == types(0))
+		{
+			column a(columnName, type, 5, 1);
+			columns[nbOfColumns - 1] = a;
+		}
+		else if (type == types(1))
+		{
+			char* x = new char[3];
+			x[0] = 'a';
+			x[1] = 'b';
+			x[2] = '\0';
+			column a(columnName, type, 5, x);
+			columns[nbOfColumns - 1] = a;
+		}
+		else if (type == types(2))
+		{
+			column a(columnName, type, 5, float(3));
+			columns[nbOfColumns - 1] = a;
+		}
+	}
+
+	char* getName()
+	{
+		return tableName;
+	}
 
 	friend istream& operator>>(istream& in, table& t);
 	friend ostream& operator<<(ostream& out, table t);
@@ -222,9 +311,9 @@ bool valideaza(char* comanda)
 		}
 		else
 		{
-			//cout << 5;
-			table t;
+			table t(copie);
 			cin >> t;
+			v.push_back(t);
 		}
 		return true;
 	}
@@ -262,7 +351,6 @@ bool valideaza(char* comanda)
 			if (strcmp(v[i].getName(), copie) == 0)
 				cout << v[i];
 		}
-		
 		return true;
 	}
 
@@ -357,23 +445,91 @@ istream& operator>>(istream& in, table& t)
 			{
 				type = type.substr(0, type.find(','));
 			}
-			nameList.push_back(tableName);
-			typeList.push_back(type);
+			//nameList.push_back(tableName);
+			//typeList.push_back(type);
+			t.addColumn(tableName, getType(type));
 		}
 	}
-	cout << endl << "rezultat:" << endl;
-	for (int i = 0; i < nameList.size(); i++)
+	//cout << endl << "rezultat:" << endl;
+	/*for (int i = 0; i < nameList.size(); i++)
 	{
-		cout << nameList[i] << "  " << typeList[i] << endl;
-	} 
-	return in; 
+		int lungime = nameList[i].length();
+		char* name = new char[nameList[i].length() + 1];
+		strcpy_s(name, nameList[i].length(), nameList[i].c_str());
+		char* type = new char[typeList[i].length() + 1];
+		strcpy_s(type, typeList[i].length() + 1, typeList[i].c_str());
+		t.addColumn(name, getType(type));
+	} */
+	return in;
 }
 
-class createTable
+ostream& operator<<(ostream& out, table t)
 {
-private:
+	cout << "Nume tabel:" << t.tableName << endl;
+	for (int i = 0; i < t.nbOfColumns; i++)
+	{
+		cout << t.columns[i].getColumnName() << "     ";
+	}
+	cout << endl;
+	for (int i = 0; i < t.columns[0].getLength(); i++)
+	{
+		for (int j = 0; j < t.nbOfColumns; j++)
+		{
+			if (t.columns[j].getType() == types(0))
+			{
+				int l = strlen(t.columns[j].getColumnName()) - to_string(t.columns[j].getInt(i)).length();
+				if (l < 0)
+					l = 0;
+				if (l == 1)
+					l = 2;
+				int k;
+				for (k = 0; k < l / 2; k++)
+					cout << ' ';
+				cout << t.columns[j].getInt(i);
+				//k = strlen(t.columns[j].getColumnName()) - k - to_string(t.columns[j].getInt(i)).length();
+				for (k; k > 0; k--)
+					cout << ' ';
+				if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
+				cout << "     ";
+			}
+			if (t.columns[j].getType() == types(1))
+			{
+				int l = strlen(t.columns[j].getColumnName()) - strlen(t.columns[j].getString(i));
+				if (l < 0)
+					l = 0;
+				if (l == 1)
+					l = 2;
+				int k;
+				for (k = 0; k < l / 2; k++)
+					cout << ' ';
+				cout << t.columns[j].getString(i);
+				for (k; k > 0; k--)
+					cout << ' ';
+				if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
+				cout << "     ";
+			}
+			if (t.columns[j].getType() == types(2))
+			{
+				int l = strlen(t.columns[j].getColumnName()) - to_string(t.columns[j].getFloat(i)).length() + 4;
+				cout.setf(ios::fixed);
+				cout << setprecision(2);
+				if (l < 0)
+					l = 0;
+				int k;
+				for (k = 0; k < l / 2; k++)
+					cout << ' ';
+				cout << t.columns[j].getFloat(i);
+				for (k; k > 0; k--)
+					cout << ' ';
+				if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
+				cout << "     ";
+			}
 
-public:
+		}
+		out << endl;
+	}
+	return out;
+}
 
 /*
 CREATE TABLE a (
