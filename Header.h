@@ -486,7 +486,6 @@ ostream& operator<<(ostream& out, table t)
 					for (k = 0; k < l / 2; k++)
 						cout << ' ';
 					cout << t.columns[j].getInt(i);
-					//k = strlen(t.columns[j].getColumnName()) - k - to_string(t.columns[j].getInt(i)).length();
 					for (k; k > 0; k--)
 						cout << ' ';
 					if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
