@@ -187,6 +187,53 @@ public:
 		}
 		return*this;
 	}
+
+	void addValue(int value)
+	{
+		int* intCopy = new int[length];
+		copy(intValues, intValues + length, intCopy);
+		length++;
+		intValues = new int[length];
+		copy(intCopy, intCopy + length - 1, intValues);
+		intValues[length - 1] = value;
+	}
+
+	void addValue(float value)
+	{
+		float* floatCopy = new float[length];
+		copy(floatValues, floatValues + length, floatCopy);
+		length++;
+		floatValues = new float[length];
+		copy(floatCopy, floatCopy + length - 1, floatValues);
+		floatValues[length - 1] = value;
+	}
+
+	void addValue(char* value)
+	{
+		char** charCopy = new char* [length];
+		for (int i = 0; i < length; i++)
+		{
+			charCopy[i] = new char(strlen(charValues[i]) + 1);
+			strcpy_s(charCopy[i], strlen(charValues[i]) + 1, charValues[i]);
+		}
+		length++;
+		charValues = new char* [length];
+		for (int i = 0; i < length - 1; i++)
+		{
+			charValues[i] = new char(strlen(charCopy[i]) + 1);
+			strcpy_s(charValues[i], strlen(charCopy[i]) + 1, charCopy[i]);
+		}
+		charValues[length - 1] = new char(strlen(value) + 1);
+		strcpy_s(charValues[length - 1],strlen(value) + 1, value);
+	}
+
+	~column()
+	{
+		delete[] columnName;
+		delete[] intValues;
+		delete[] floatValues;
+		delete[] charValues;
+	}
 };
 
 
@@ -243,6 +290,130 @@ public:
 	char* getName()
 	{
 		return tableName;
+	}
+
+	void insertValues(char* values)
+	{
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			char* value = new char[strlen(values) + 1];
+			char* p = strchr(values,',');
+			int nbOfCharacters = p - values;
+			if (strchr(values, ',') != nullptr)
+			{
+				strcpy_s(value, strlen(values) + 1, values);
+				value[nbOfCharacters] = '\0';
+				values = values + nbOfCharacters + 1;
+			}
+			else
+			{
+				value = values;
+			}
+			types t = columns[i].getType();
+			if (t == types(0))
+			{
+				int a = atoi(value);
+				//columns[i].addValue(int)
+				columns[i].addValue(a);
+			}
+			if (t == types(1))
+			{
+				//columns[i].addValue(string)
+				columns[i].addValue(value);
+			}
+			if (t == types(2))
+			{
+				float f = atof(value);
+				//columns[i].addValue(float)
+				columns[i].addValue(f);
+			}
+		}
+	}
+
+	void deleteColumn(char* columnName)
+	{
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			if (strcmp(columns[i].getColumnName(), columnName) == 0)
+			{
+				nbOfColumns--;
+				for (int j = i; j < nbOfColumns; j++)
+				{
+					columns[j] = columns[j + 1];
+				}
+				break;
+			}
+		}
+	}
+
+	void select(char* values)
+	{
+		int end = strstr(values, " = ") - values;
+		if (values[end + 3] == '"' && values[strlen(values) - 1] == '"')
+		{
+			char* columnName = new char[strlen(values) + 1];
+			char* value = new char[strlen(values) + 1];
+			strcpy_s(columnName, strlen(values) + 1, values);
+			strcpy_s(value, strlen(values) + 1, values + end + 4);
+			columnName[end] = '\0';
+			value[strlen(value) - 1] = '\0';
+			for (int i = 0; i < nbOfColumns; i++)
+			{
+				if (strcmp(columns[i].getColumnName(), columnName) == 0)
+				{
+					int length = columns[i].getLength();
+					for (int j = 0; j < length; j++)
+					{
+						if (columns[i].getType() == types(0))
+						{
+							if (columns[i].getInt(j) == atoi(value))
+							{
+								printRow(j);
+							}
+						}	
+						if (columns[i].getType() == types(1))
+						{
+							if (strcmp(columns[i].getString(j),value) == 0)
+							{
+								printRow(j);
+							}
+						}
+						if (columns[i].getType() == types(2))
+						{
+							if (columns[i].getInt(j) == atof(value))
+							{
+								printRow(j);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	void printRow(int index)
+	{
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			if (columns[i].getType() == types(0))
+			{
+				cout << columns[i].getInt(index) << "    ";
+			}
+			if (columns[i].getType() == types(1))
+			{
+				cout << columns[i].getString(index) << "    ";
+			}
+			if (columns[i].getType() == types(2))
+			{
+				cout << columns[i].getFloat(index) << "    ";
+			}
+		}
+		cout << endl;
+	}
+
+	int getNumberOfRows()
+	{
+		return columns[0].getLength();
 	}
 
 	friend istream& operator>>(istream& in, table& t);
@@ -325,13 +496,24 @@ bool valideaza(char* comanda)
 		strcpy_s(copie, strlen(comanda) + 1, comanda);
 		copie[strlen(comanda) + 2] = '\0';
 		int index = numeTabel(copie, strlen("DROP TABLE") + 2);
-		copie[index] = '\0';
+		copie[index - 1] = '\0';
 		copie = copie + strlen("DROP TABLE") + 1;
-		cout << copie;
 		if (comanda[strlen("DROP TABLE") + strlen(copie) + 1] != ';')
 		{
-			cout << "Eroare";
+			cout << "drop " << copie;
+			cout << "Eroare" << endl;
 			return false;
+		}
+		else
+		{
+			for (int i = 0; i < v.size(); i++)
+			{
+				if (strcmp(v[i].getName(), copie) == 0)
+				{
+					v.erase(v.begin() + i);
+					cout << "erased";
+				}
+			}
 		}
 		return true;
 	}
@@ -354,6 +536,168 @@ bool valideaza(char* comanda)
 		return true;
 	}
 
+	strcpy_s(c, strlen("INSERT INTO") + 1, "INSERT INTO\0");
+
+	if (strcmp(copie, c) == 0)
+	{
+		strcpy_s(copie, strlen(comanda) + 1, comanda);
+		copie[strlen(comanda) + 2] = '\0';
+		int index = numeTabel(copie, strlen("INSERT INTO") + 2);
+		copie[index] = '\0';
+		copie = copie + strlen("INSERT INTO") + 1;
+		//cout << copie;
+
+		char* values = new char[strlen(comanda)];
+		strcpy_s(values, strlen(comanda) - index, comanda + index + 1);
+
+		if (std::string(values).substr(0, 8) == std::string("VALUES (") && values[strlen(values) - 1] == ')')
+		{
+			values = values + 8;
+			values[strlen(values) - 1] = '\0';
+			for (int i = 0; i < v.size(); i++)
+			{
+				if (strcmp(v[i].getName(), copie) == 0)
+				{
+					v[i].insertValues(values);
+				}
+
+			}
+			return true;
+		}
+		else 
+		{
+			cout << "eroare";
+			return false;
+		}
+	}
+
+	strcpy_s(c, strlen("DELETE FROM") + 1, "DELETE FROM\0");
+
+	if (strcmp(copie, c) == 0)
+	{
+		strcpy_s(copie, strlen(comanda) + 1, comanda);
+		copie[strlen(comanda) + 2] = '\0';
+		int index = numeTabel(copie, strlen("DELETE FROM") + 2);
+		copie[index] = '\0';
+		copie = copie + strlen("DELETE FROM") + 1;
+		//cout << copie;
+
+		char* values = new char[strlen(comanda)];
+		strcpy_s(values, strlen(comanda) - index, comanda + index + 1);
+
+		if (std::string(values).substr(0, 6) == std::string("WHERE "))
+		{
+			values = values + 6;
+			values[strlen(values)] = '\0';
+			for (int i = 0; i < v.size(); i++)
+			{
+				if (strcmp(v[i].getName(), copie) == 0)
+				{
+					v[i].deleteColumn(values);
+				}
+
+			}
+			return true;
+		}
+		else
+		{
+			cout << "eroare";
+			return false;
+		}
+	}
+
+	strcpy_s(c, strlen("SELECT ALL") + 1, "SELECT ALL\0");
+
+	if (strcmp(copie, c) == 0)
+	{
+		char* a = copie + strlen(c) + 1;
+		if (strncmp(copie + strlen(c) + 1, "FROM", 4) == 0)
+		{
+			//copie = copie + 6;
+			strcpy_s(copie, strlen(comanda) + 1, comanda);
+			copie[strlen(comanda) + 2] = '\0';
+			int index = numeTabel(copie, strlen("SELECT ALL FROM") + 2);
+			copie[index] = '\0';
+			copie = copie + strlen("SELECT ALL FROM") + 1;
+			//cout << copie;
+			if (strlen(comanda) - index > 1)
+			{
+				char* values = new char[strlen(comanda)];
+				strcpy_s(values, strlen(comanda) - index, comanda + index + 1);
+
+				if (std::string(values).substr(0, 6) == std::string("WHERE "))
+				{
+					values = values + 6;
+					values[strlen(values)] = '\0';
+					for (int i = 0; i < v.size(); i++)
+					{
+						if (strcmp(v[i].getName(), copie) == 0)
+						{
+							v[i].select(values);
+						}
+
+					}
+					return true;
+				}
+				else return false;
+			}
+			else
+			{
+				for (int i = 0; i < v.size(); i++)
+				{
+					if (strcmp(v[i].getName(), copie) == 0)
+					{
+						for (int j = 0; j < v[i].getNumberOfRows(); j++)
+						{
+							v[i].printRow(j);
+						}
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		strcpy_s(c, strlen("SELECT") + 1, "SELECT\0");
+		copie[strchr(copie, ' ') - copie] = '\0';
+		
+		if (strcmp(copie, c) == 0)
+		{
+			strcpy_s(copie, strlen(comanda) + 1, comanda);
+			char* values = new char[strlen(copie)];
+			strcpy_s(values, strlen(copie) + 1, copie);
+			char* p = strstr(values, " FROM");
+			values = values + 7;
+			values[p - values] = '\0';
+			
+			p = strstr(copie, " FROM ") + strlen(" FROM ");
+			int index = strchr(p, ' ') - p;
+			char* tableName = new char[strlen(comanda)];
+			strncpy_s(tableName, strchr(p, ' ') - p + 1, p, strchr(p, ' ') - p);
+			tableName[strchr(p, ' ') - p + 1] = '\0';
+			
+			int start = strstr(copie, tableName) - copie + strlen(tableName) + 1;
+			if (strlen(comanda) - index > 1)
+			{
+				if (std::string(copie).substr(start, 6) == std::string("WHERE "))
+				{
+					copie = copie + start + 6;
+					//copie[strlen(copie)] = '\0';
+					for (int i = 0; i < v.size(); i++)
+					{
+						if (strcmp(v[i].getName(), tableName) == 0)
+						{
+							//
+						}
+
+					}
+					return true;
+				}
+				else return false;
+			}
+		}
+		strcpy_s(copie, strlen(comanda) + 1, comanda);
+	}
 	strcpy_s(c, strlen("CREATE INDEX") + 1, "CREATE INDEX\0");
 
 	if (strcmp(copie, c) == 0)
@@ -433,9 +777,9 @@ istream& operator>>(istream& in, table& t)
 		else
 		{
 			std::string name = line.substr(0, line.find(' '));
-			char* tableName = new char[name.length() + 1];
-			strcpy_s(tableName, name.length() + 1, name.c_str());
-			//cout << tableName;
+			char* columnName = new char[name.length() + 1];
+			strcpy_s(columnName, name.length() + 1, name.c_str());
+			//cout << columnName;
 			std::string type = line.substr(line.find(' ') + 1, line.find(','));
 			if (type.find(' ') < type.length() + 1)
 			{
@@ -445,9 +789,9 @@ istream& operator>>(istream& in, table& t)
 			{
 				type = type.substr(0, type.find(','));
 			}
-			//nameList.push_back(tableName);
+			//nameList.push_back(columnName);
 			//typeList.push_back(type);
-			t.addColumn(tableName, getType(type));
+			t.addColumn(columnName, getType(type));
 		}
 	}
 	//cout << endl << "rezultat:" << endl;
@@ -468,7 +812,9 @@ ostream& operator<<(ostream& out, table t)
 	cout << "Nume tabel:" << t.tableName << endl;
 	for (int i = 0; i < t.nbOfColumns; i++)
 	{
+		cout << "     ";
 		cout << t.columns[i].getColumnName() << "     ";
+		cout << "     ";
 	}
 	cout << endl;
 	for (int i = 0; i < t.columns[0].getLength(); i++)
@@ -477,7 +823,7 @@ ostream& operator<<(ostream& out, table t)
 		{
 			if (t.columns[j].getType() == types(0))
 			{
-				int l = strlen(t.columns[j].getColumnName()) - to_string(t.columns[j].getInt(i)).length();
+				int l = strlen(t.columns[j].getColumnName()) + 10 - to_string(t.columns[j].getInt(i)).length();
 				if (l < 0)
 					l = 0;
 				if (l == 1)
@@ -489,12 +835,12 @@ ostream& operator<<(ostream& out, table t)
 				//k = strlen(t.columns[j].getColumnName()) - k - to_string(t.columns[j].getInt(i)).length();
 				for (k; k > 0; k--)
 					cout << ' ';
-				if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
+				if ((strlen(t.columns[j].getColumnName()) + 10) % 2 == 1) cout << ' ';
 				cout << "     ";
 			}
 			if (t.columns[j].getType() == types(1))
 			{
-				int l = strlen(t.columns[j].getColumnName()) - strlen(t.columns[j].getString(i));
+				int l = strlen(t.columns[j].getColumnName()) + 10 - strlen(t.columns[j].getString(i));
 				if (l < 0)
 					l = 0;
 				if (l == 1)
@@ -505,12 +851,12 @@ ostream& operator<<(ostream& out, table t)
 				cout << t.columns[j].getString(i);
 				for (k; k > 0; k--)
 					cout << ' ';
-				if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
+				if ((strlen(t.columns[j].getColumnName()) + 10) % 2 == 1) cout << ' ';
 				cout << "     ";
 			}
 			if (t.columns[j].getType() == types(2))
 			{
-				int l = strlen(t.columns[j].getColumnName()) - to_string(t.columns[j].getFloat(i)).length() + 4;
+				int l = strlen(t.columns[j].getColumnName()) + 10 - to_string(t.columns[j].getFloat(i)).length() + 4;
 				cout.setf(ios::fixed);
 				cout << setprecision(2);
 				if (l < 0)
@@ -521,7 +867,7 @@ ostream& operator<<(ostream& out, table t)
 				cout << t.columns[j].getFloat(i);
 				for (k; k > 0; k--)
 					cout << ' ';
-				if (strlen(t.columns[j].getColumnName()) % 2 == 1) cout << ' ';
+				if ((strlen(t.columns[j].getColumnName()) + 10) % 2 == 1) cout << ' ';
 				cout << "     ";
 			}
 
@@ -557,6 +903,15 @@ Varsta int,
 functie string,
 nota float,
 );
+INSERT INTO angajat VALUES (Popescu,Ion,12,2000,23,boss,5.7)
+INSERT INTO angajat VALUES (Popescu,Alex,13,3500,39,miniboss,8.2)
+INSERT INTO angajat VALUES (Popescu,Andrei,21,2400,26,bossss,4.3)
+SELECT nume,prenume,id FROM angajat WHERE nume = "Popescu"
+SELECT ALL FROM angajat
+
+
+SELECT ALL FROM angajat WHERE nume = "Popescu"
+
 */
 
 
