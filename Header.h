@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
+#include <math.h>
 using namespace std;
 #include <string>
 
@@ -380,7 +381,7 @@ public:
 						}
 						if (columns[i].getType() == types(2))
 						{
-							if (columns[i].getInt(j) == atof(value))
+							if (abs(columns[i].getFloat(j) - atof(value)) < 0.001)
 							{
 								printRow(j);
 							}
@@ -406,6 +407,104 @@ public:
 			if (columns[i].getType() == types(2))
 			{
 				cout << columns[i].getFloat(index) << "    ";
+			}
+		}
+		cout << endl;
+	}
+
+	void getSelectValues(char* s, char* values)
+	{
+		vector<std::string> columnNames;
+		std::string names = std::string(s);
+		while (names.find(',') != -1)
+		{
+			int index = names.find(',');
+			columnNames.push_back(names.substr(0, index));
+			names = names.substr(index + 1, names.length() - index - 1);
+		}
+		columnNames.push_back(names);
+		if (values != NULL)
+		{
+			//values = 'nume = "Popescu"'
+			char* p = strstr(values, " = ");
+			char* columnName = new char[strlen(values)];
+			char* value = new char[strlen(values)];
+			strncpy_s(columnName, p - values + 1, values, p - values);
+			
+			if (strchr(p, '"') != NULL)
+			{
+				if (p)
+				{
+					strncpy_s(value, strlen(p), p + 4, strlen(p) - 1);
+					value[strlen(value) - 1] = '\0';
+				}
+			}
+			else
+			{
+				strncpy_s(value, strlen(p), p + 3, strlen(p) - 1);
+				value[strlen(value)] = '\0';
+			}
+
+			for (int i = 0; i < nbOfColumns; i++)
+			{
+				if (strcmp(columns[i].getColumnName(), columnName) == 0)
+				{
+					for (int j = 0; j < columns[i].getLength(); j++)
+					{
+						if (columns[i].getType() == types(0))
+							if (columns[i].getInt(j) == atoi(value))
+								selectPrintRow(j,columnNames);
+
+						if (columns[i].getType() == types(1))
+							if (strcmp(columns[i].getString(j), value) == 0)
+								selectPrintRow(j, columnNames);
+
+						if (columns[i].getType() == types(2))
+						{
+							//float f = abs(columns[i].getFloat(j) - atof(value));
+							if (abs(columns[i].getFloat(j) - atof(value)) < 0.001)
+								selectPrintRow(j, columnNames);
+						}
+					}
+				}
+			}
+
+			
+
+		}
+
+		else
+		{
+			for (int i = 0; i < columns[0].getLength(); i++)
+			{
+				selectPrintRow(i, columnNames);
+			}
+
+		}
+
+	}
+
+	void selectPrintRow(int index, vector <std::string> columnNames)
+	{
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			for (int j = 0; j < columnNames.size(); j++)
+			{
+				if (strcmp(columns[i].getColumnName(), columnNames[j].c_str()) == 0)
+				{
+					if (columns[i].getType() == types(0))
+					{
+						cout << columns[i].getInt(index) << "    ";
+					}
+					if (columns[i].getType() == types(1))
+					{
+						cout << columns[i].getString(index) << "    ";
+					}
+					if (columns[i].getType() == types(2))
+					{
+						cout << columns[i].getFloat(index) << "    ";
+					}
+				}
 			}
 		}
 		cout << endl;
@@ -671,13 +770,16 @@ bool valideaza(char* comanda)
 			values[p - values] = '\0';
 			
 			p = strstr(copie, " FROM ") + strlen(" FROM ");
-			int index = strchr(p, ' ') - p;
+			int index;
+			if (strchr(p, ' ') == NULL)
+				index = strlen(p);
+			else index = strchr(p, ' ') - p;
 			char* tableName = new char[strlen(comanda)];
-			strncpy_s(tableName, strchr(p, ' ') - p + 1, p, strchr(p, ' ') - p);
-			tableName[strchr(p, ' ') - p + 1] = '\0';
+			strncpy_s(tableName, index + 1, p, index);
+			tableName[index + 1] = '\0';
 			
 			int start = strstr(copie, tableName) - copie + strlen(tableName) + 1;
-			if (strlen(comanda) - index > 1)
+			if (strchr(p,' ') != NULL)
 			{
 				if (std::string(copie).substr(start, 6) == std::string("WHERE "))
 				{
@@ -687,7 +789,7 @@ bool valideaza(char* comanda)
 					{
 						if (strcmp(v[i].getName(), tableName) == 0)
 						{
-							//
+							v[i].getSelectValues(values,copie);
 						}
 
 					}
@@ -695,9 +797,60 @@ bool valideaza(char* comanda)
 				}
 				else return false;
 			}
+			else
+			{
+				for (int i = 0; i < v.size(); i++)
+				{
+					if (strcmp(v[i].getName(), tableName) == 0)
+					{
+						v[i].getSelectValues(values, NULL);
+					}
+
+				}
+				return true;
+			}
 		}
 		strcpy_s(copie, strlen(comanda) + 1, comanda);
 	}
+
+	strcpy_s(c, strlen("UPDATE") + 1, "UPDATE\0");
+	copie[strchr(copie, ' ') - copie] = '\0';
+	if (strcmp(copie, c) == 0)
+	{
+		strcpy_s(copie, strlen(comanda) + 1, comanda);
+		char* tableName = new char[strlen(comanda)];
+		strncpy_s(tableName, strstr(copie, " SET ") - (copie + strlen("UPDATE ")) + 1, copie + strlen("UPDATE "), strstr(copie, " SET ") - (copie + strlen("UPDATE ")));
+		cout << tableName << endl;
+		char* setName = new char[strlen(comanda)];
+		char* p = copie + strlen("UPDATE ") + strlen(tableName) + strlen(" SET ");
+		strncpy_s(setName, strchr(p, ' ') - p + 1, p, strchr(p, ' ') - p);
+		cout << setName << endl;
+		p = strchr(p, ' = ') + strlen(" = ");
+		char* setValue = new char[strlen(comanda)];
+		strncpy_s(setValue, strchr(p, ' ') - p + 1, p, strchr(p, ' ') - p);
+		if (strchr(setValue, '"') != NULL)
+		{
+			setValue++;
+			setValue[strlen(setValue) - 1] = '\0';
+		}
+		cout << setValue << endl;
+		p = strstr(p, " WHERE ") + strlen(" WHERE ");
+		char* whereName = new char[strlen(comanda)];
+		strncpy_s(whereName, strchr(p, ' ') - p + 1, p, strchr(p, ' ') - p);
+		cout << whereName << endl;
+		p = strstr(p, " = ") + strlen(" = ");
+		char* whereValue = new char[strlen(comanda)];
+		strncpy_s(whereValue, strchr(p, '\0') - p + 1, p, strchr(p, '\0') - p);
+		if (strchr(whereValue, '"') != NULL)
+		{
+			whereValue++;
+			whereValue[strlen(whereValue) - 1] = '\0';
+		}
+		cout << whereValue << endl;
+	}
+
+	strcpy_s(copie, strlen(comanda) + 1, comanda);
+
 	strcpy_s(c, strlen("CREATE INDEX") + 1, "CREATE INDEX\0");
 
 	if (strcmp(copie, c) == 0)
@@ -904,14 +1057,13 @@ functie string,
 nota float,
 );
 INSERT INTO angajat VALUES (Popescu,Ion,12,2000,23,boss,5.7)
-INSERT INTO angajat VALUES (Popescu,Alex,13,3500,39,miniboss,8.2)
-INSERT INTO angajat VALUES (Popescu,Andrei,21,2400,26,bossss,4.3)
-SELECT nume,prenume,id FROM angajat WHERE nume = "Popescu"
+INSERT INTO angajat VALUES (Popescu,Alex,13,3500,39,miniboss,5.7)
+INSERT INTO angajat VALUES (Popescu,Andrei,12,2400,26,bossss,5.71)
+DISPLAY TABLE angajat
+UPDATE angajat SET cnp = 20 WHERE nume = "Popescu"
 SELECT ALL FROM angajat
-
-
 SELECT ALL FROM angajat WHERE nume = "Popescu"
-
+/////////////////////////////////////////////SELECT ALL int,float DELETE FROM float///////////////////////////////
 */
 
 
