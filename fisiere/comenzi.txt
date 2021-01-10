@@ -1,0 +1,9 @@
+CREATE TABLE angajat (
+nume string,
+prenume string,
+id int,
+salariu float,
+Varsta int,
+functie string,
+nota float,
+);

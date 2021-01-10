@@ -1,16 +1,49 @@
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <vector>
 #include <iomanip>
 #include <math.h>
+#include <fstream>
+#include <stdio.h>
 using namespace std;
 #include <string>
 
+/*
+CREATE TABLE angajat (
+nume string,
+prenume string,
+id int,
+salariu float,
+Varsta int,
+functie string,
+nota float,
+);
+CREATE TABLE sdf (
+nume string,
+prenume string,
+id int,
+salariu float,
+Varsta int,
+functie string,
+nota float,
+);
+*/
 
 enum types { intNumber = 0, string, floatNumber };
 
+bool readingFromFile = false;
+ifstream fisierCitire;
+
+void adaugaInDescriere(char* numeTabel)
+{
+	FILE* f;
+	errno_t err = fopen_s(&f, "./fisiere/descriere.txt", "a");
+	fprintf_s(f, "%s\n", numeTabel);
+	fclose(f);
+}
 
 
 class column
@@ -62,6 +95,7 @@ public:
 
 	column(const column& c) : column(c.columnName, c.type, 0)
 	{
+		length = c.length;
 		if (c.type == types(0))
 		{
 			intValues = new int[c.length];
@@ -226,6 +260,14 @@ public:
 		}
 		charValues[length - 1] = new char(strlen(value) + 1);
 		strcpy_s(charValues[length - 1],strlen(value) + 1, value);
+	}
+
+	void deleteAllValues()
+	{
+		length = 0;
+		intValues = nullptr;
+		charValues = nullptr;
+		floatValues = nullptr;
 	}
 
 	~column()
@@ -515,11 +557,152 @@ public:
 		return columns[0].getLength();
 	}
 
+	int getNUmberOfColumns()
+	{
+		return nbOfColumns;
+	}
+	column getColumn(int index)
+	{
+		return columns[index];
+	}
+
+	void deleteValues()
+	{
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			columns[i].deleteAllValues();
+		}
+	}
+
 	friend istream& operator>>(istream& in, table& t);
 	friend ostream& operator<<(ostream& out, table t);
 };
 
 std::vector<table> v;
+
+void creareFisier(table t)
+{
+	char* numeTabel = new char[100];
+	strcpy_s(numeTabel,strlen(t.getName()) + 1,t.getName());
+	FILE* f;
+	char* numeFisier = new char[strlen(numeTabel) + 5];
+	strcpy_s(numeFisier, strlen(numeTabel) + 1, numeTabel);
+	strcat_s(numeFisier, strlen(numeFisier) + 5, ".txt");
+	char* destinatie = new char[strlen(numeFisier) + 10];
+	strcpy_s(destinatie, strlen("./fisiere/") + 1, "./fisiere/\0");
+	strcat_s(destinatie, strlen(destinatie) + strlen(numeFisier) + 1, numeFisier);
+	errno_t err = fopen_s(&f, destinatie, "w");
+	fprintf_s(f, "%d ", t.getNUmberOfColumns());
+	fprintf_s(f, "%d\n", t.getNumberOfRows());
+	for (int i = 0; i < t.getNUmberOfColumns(); i++)
+	{
+		column x = t.getColumn(i);
+		fprintf_s(f, "%s ",x.getColumnName());
+	}
+	fprintf_s(f, "\n");
+	for (int i = 0; i < t.getNUmberOfColumns(); i++)
+	{
+		column x = t.getColumn(i);
+		fprintf_s(f, "%d ", x.getType());
+	}
+	fprintf_s(f, "\n");
+	for (int j = 0; j < t.getNumberOfRows(); j++)
+	{
+		for (int i = 0; i < t.getNUmberOfColumns(); i++)
+		{
+			column x = t.getColumn(i); 
+			if (x.getType() == types(0))
+			{
+				fprintf_s(f, "%d ", x.getInt(j));
+			}
+			if (x.getType() == types(1))
+			{
+				char* s = x.getString(i);
+				fprintf_s(f, "%s ", x.getString(j));
+			}
+			if (x.getType() == types(2))
+			{
+				fprintf_s(f, "%f ", x.getFloat(j));
+			}
+		}
+		fprintf_s(f, "\n");
+	}
+	fclose(f);
+}
+
+void readTables()
+{
+	//FILE* f;
+	//errno_t err = fopen_s(&f, "./fisiere/descriere.txt", "r");
+	ifstream f("./fisiere/descriere.txt");
+	char* numeTabel = new char[100];
+	while (f >> numeTabel)
+	{
+		char* numeFisier = new char[strlen(numeTabel) + 11];
+		strcpy_s(numeFisier, strlen("./fisiere/") + 1, "./fisiere/\0");
+		strcat_s(numeFisier, strlen(numeFisier) + strlen(numeTabel) + 1, numeTabel);
+		strcat_s(numeFisier, strlen(numeFisier) + 5, ".txt");
+		ifstream in(numeFisier);
+		//char* tableName, int nbOfColumns, char** columnNames
+		int nbOfColumns,nbOfRows;
+		in >> nbOfColumns >> nbOfRows;
+		char** columnNames = new char* [nbOfColumns];
+		for (int i = 0; i < nbOfColumns; i++)
+			columnNames[i] = new char[100];
+		for (int i = 0; i < nbOfColumns; i++)
+			in >> columnNames[i];
+		types* columnTypes = new types[nbOfColumns];
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			int x;
+			in >> x;
+			columnTypes[i] = types(x);
+		}
+		table t(numeTabel);
+		for (int i = 0; i < nbOfColumns; i++)
+		{
+			t.addColumn(columnNames[i],columnTypes[i]);
+		}
+		t.deleteValues();
+		for (int i = 0; i < nbOfRows; i++)
+		{
+			std::string values;
+			getline(in, values);
+			if (values.length() < 2)
+				getline(in, values);
+			std::replace(values.begin(), values.end(), ' ', ',');
+			char* v = new char[values.length() + 1];
+			strcpy_s(v, values.length() + 1, values.c_str());
+			if (v[strlen(v) - 1] == ',')
+				v[strlen(v) - 1] = '\0';
+			t.insertValues(v);
+		}
+		v.push_back(t);
+	}
+	f.close();
+}
+
+void scrieDesciere()
+{
+	for (int i = 0; i < v.size(); i++)
+	{
+		FILE* f;
+		errno_t err = fopen_s(&f, "./fisiere/descriere.txt", "w");
+		fprintf_s(f, "%s\n", v[i].getName());
+		fclose(f);
+	}
+}
+
+void deleteFile(char* numeTabel)
+{
+	char* numeFisier = new char[strlen(numeTabel) + 11];
+	strcpy_s(numeFisier, strlen("./fisiere/") + 1, "./fisiere/\0");
+	strcat_s(numeFisier, strlen(numeFisier) + strlen(numeTabel) + 1, numeTabel);
+	strcat_s(numeFisier, strlen(numeFisier) + 5, ".txt");
+	remove(numeFisier);
+	scrieDesciere();
+}
+
 
 int lungimeComanda(char* s)
 {
@@ -581,9 +764,26 @@ bool valideaza(char* comanda)
 		}
 		else
 		{
+			for (int i = 0; i < v.size(); i++)
+			{
+				if (strcmp(v[i].getName(), copie) == 0)
+				{
+					cout << "Numele tabelului exista deja";
+					return false;
+				}
+			}
 			table t(copie);
-			cin >> t;
+			if (readingFromFile)
+			{
+				fisierCitire >> t;
+			}
+			else 
+			{
+				cin >> t;
+			}
 			v.push_back(t);
+			adaugaInDescriere(t.getName());
+			creareFisier(t);
 		}
 		return true;
 	}
@@ -610,7 +810,8 @@ bool valideaza(char* comanda)
 				if (strcmp(v[i].getName(), copie) == 0)
 				{
 					v.erase(v.begin() + i);
-					cout << "erased";
+					deleteFile(copie);
+					cout << copie << " erased";
 				}
 			}
 		}
@@ -658,8 +859,8 @@ bool valideaza(char* comanda)
 				if (strcmp(v[i].getName(), copie) == 0)
 				{
 					v[i].insertValues(values);
+					creareFisier(v[i]);
 				}
-
 			}
 			return true;
 		}
@@ -693,6 +894,7 @@ bool valideaza(char* comanda)
 				if (strcmp(v[i].getName(), copie) == 0)
 				{
 					v[i].deleteColumn(values);
+					creareFisier(v[i]);
 				}
 
 			}
@@ -850,6 +1052,22 @@ bool valideaza(char* comanda)
 	}
 
 	strcpy_s(copie, strlen(comanda) + 1, comanda);
+
+	strcpy_s(c, strlen("IMPORT") + 1, "IMPORT\0");
+	copie[strchr(copie, ' ') - copie] = '\0';
+	if (strcmp(copie, c) == 0)
+	{
+		char* numeCSV = new char[100];
+		strcpy_s(numeCSV, strlen(copie) + 1, copie);
+		numeCSV = strchr(copie, ' ') + 1;
+		ifstream f;
+		f.open(numeCSV);
+		std::string line;
+		getline(f, line);
+		replace(line.begin(), line.end(), ',', ' ');
+		std::string word;
+		
+	}
 
 	strcpy_s(c, strlen("CREATE INDEX") + 1, "CREATE INDEX\0");
 
@@ -1029,6 +1247,27 @@ ostream& operator<<(ostream& out, table t)
 	}
 	return out;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
 CREATE TABLE a (
